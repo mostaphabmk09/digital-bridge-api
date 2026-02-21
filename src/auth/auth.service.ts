@@ -1,10 +1,8 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import * as bcrypt from 'bcrypt';
-import { RegisterDto } from './dto/register.dto';
 import { JwtService } from '@nestjs/jwt';
 import { UnauthorizedException } from '@nestjs/common';
-import { LoginDto } from './dto/login.dto';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
@@ -77,8 +75,12 @@ export class AuthService {
     };
   }
 
-  async refreshTokens(userId: string, refreshToken: string) {
-  const user = await this.usersService.findById(userId);
+  async refreshFromToken(refreshToken: string) {
+  const payload = await this.jwtService.verifyAsync(refreshToken, {
+    secret: this.configService.get('JWT_REFRESH_SECRET'),
+  });
+
+  const user = await this.usersService.findById(payload.sub);
 
   if (!user || !user.refreshToken) {
     throw new UnauthorizedException('Access denied');
@@ -90,23 +92,22 @@ export class AuthService {
   );
 
   if (!isMatch) {
-    // possible reuse attack
     await this.usersService.updateRefreshToken(user.id, null);
     throw new UnauthorizedException('Invalid refresh token');
   }
 
-  const payload = {
+  const newPayload = {
     sub: user.id,
     email: user.email,
     role: user.role,
   };
 
-  const newAccessToken = await this.jwtService.signAsync(payload, {
+  const newAccessToken = await this.jwtService.signAsync(newPayload, {
     secret: this.configService.get('JWT_ACCESS_SECRET'),
     expiresIn: this.configService.get('JWT_ACCESS_EXPIRES'),
   });
 
-  const newRefreshToken = await this.jwtService.signAsync(payload, {
+  const newRefreshToken = await this.jwtService.signAsync(newPayload, {
     secret: this.configService.get('JWT_REFRESH_SECRET'),
     expiresIn: this.configService.get('JWT_REFRESH_EXPIRES'),
   });
@@ -122,5 +123,5 @@ export class AuthService {
     accessToken: newAccessToken,
     refreshToken: newRefreshToken,
   };
-  }
+}
 }

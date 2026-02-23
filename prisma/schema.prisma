@@ -12,20 +12,35 @@ enum Role {
   ADMIN
 }
 
-enum UserType {
-  USER
-  ADMIN
+enum ProfileType {
+  INDIVIDUAL
+  ENTREPRENEUR
+  INVESTOR
+  AGENCY
+  COMPANY
+}
+
+enum Interest {
+  COLLABORATION
+  FINANCEMENT
+  IMMOBILIER
 }
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
+  id           String       @id @default(uuid())
+  email        String       @unique
   password     String
-  role         Role     @default(USER)
-  userType     UserType @default(USER)
+
+  role         Role         @default(USER)
+
+  // Business identity (nullable until onboarding)
+  profileType  ProfileType?
+
+  // Multi-interest (Postgres array enum)
+  interests    Interest[]   @default([])
 
   refreshToken String?
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 }

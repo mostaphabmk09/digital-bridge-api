@@ -7,6 +7,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+//////////////////////////////////////////////////////
+// ENUMS
+//////////////////////////////////////////////////////
+
 enum Role {
   USER
   ADMIN
@@ -26,6 +30,28 @@ enum Interest {
   IMMOBILIER
 }
 
+enum OpportunityType {
+  COLLABORATION
+  FINANCEMENT
+  IMMOBILIER
+}
+
+enum OpportunityStatus {
+  OPEN
+  CLOSED
+  ARCHIVED
+}
+
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+//////////////////////////////////////////////////////
+// USER
+//////////////////////////////////////////////////////
+
 model User {
   id           String       @id @default(uuid())
   email        String       @unique
@@ -33,14 +59,142 @@ model User {
 
   role         Role         @default(USER)
 
-  // Business identity (nullable until onboarding)
   profileType  ProfileType?
 
-  // Multi-interest (Postgres array enum)
   interests    Interest[]   @default([])
 
   refreshToken String?
 
+  // relations
+  opportunities Opportunity[]
+  applications  Application[]
+  favorites     Favorite[]
+
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
+}
+
+//////////////////////////////////////////////////////
+// OPPORTUNITY CORE
+//////////////////////////////////////////////////////
+
+model Opportunity {
+  id          String            @id @default(uuid())
+
+  title       String
+  description String
+
+  type        OpportunityType
+
+  location    String?
+
+  status      OpportunityStatus @default(OPEN)
+
+  authorId    String
+  author      User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  // extension tables
+  collaboration CollaborationOpportunity?
+  financement   FinancementOpportunity?
+  immobilier    ImmobilierOpportunity?
+
+  applications Application[]
+  favorites    Favorite[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+//////////////////////////////////////////////////////
+// COLLABORATION OPPORTUNITY
+//////////////////////////////////////////////////////
+
+model CollaborationOpportunity {
+  id            String @id @default(uuid())
+
+  opportunityId String @unique
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  equity        Float?
+  teamSize      Int?
+
+  requiredSkills String[]
+
+  createdAt     DateTime @default(now())
+}
+
+//////////////////////////////////////////////////////
+// FINANCEMENT OPPORTUNITY
+//////////////////////////////////////////////////////
+
+model FinancementOpportunity {
+  id              String @id @default(uuid())
+
+  opportunityId   String @unique
+  opportunity     Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  investmentNeeded Float
+  equityOffered    Float?
+  revenueShare     Float?
+
+  createdAt       DateTime @default(now())
+}
+
+//////////////////////////////////////////////////////
+// IMMOBILIER OPPORTUNITY
+//////////////////////////////////////////////////////
+
+model ImmobilierOpportunity {
+  id               String @id @default(uuid())
+
+  opportunityId    String @unique
+  opportunity      Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  propertyType     String
+  city             String
+
+  investmentBudget Float
+  expectedROI      Float?
+
+  createdAt        DateTime @default(now())
+}
+
+//////////////////////////////////////////////////////
+// APPLICATIONS
+//////////////////////////////////////////////////////
+
+model Application {
+  id            String            @id @default(uuid())
+
+  message       String?
+
+  status        ApplicationStatus @default(PENDING)
+
+  applicantId   String
+  applicant     User              @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+
+  opportunityId String
+  opportunity   Opportunity       @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime          @default(now())
+
+  @@unique([applicantId, opportunityId])
+}
+
+//////////////////////////////////////////////////////
+// FAVORITES
+//////////////////////////////////////////////////////
+
+model Favorite {
+  id            String @id @default(uuid())
+
+  userId        String
+  user          User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime @default(now())
+
+  @@unique([userId, opportunityId])
 }
